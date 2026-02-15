@@ -3,10 +3,11 @@ Where continent is not null
 order by 1,2
 
 --Covid Fatality Percentage
+CREATE VIEW PhilippinesDeathPercentage AS
 Select location, date, total_cases, total_deaths, (CAST(total_deaths AS FLOAT)/CAST(total_cases AS FLOAT))*100 as DeathPercentage
 From [Covid Analysis Portfolio]..CovidDeaths
 Where location like '%Philippines'
-order by 1,2
+--order by 1,2
 
 -- Total Cases vs Population
 Select location, date, total_cases, population, (CAST(total_cases AS FLOAT)/CAST(population AS FLOAT))*100 as InfectedPercentage
@@ -42,11 +43,36 @@ where continent is not null
 order by 1,2
 
 --Total Population vs Vaccination
+WITH PopvsVac (continent, location, date, population, New_Vaccinations, CurrentTotalVaccination) AS
+(SELECT dea.continent, dea.location, dea.date, dea.population,  vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS CurrentTotalVaccination
+    FROM [Covid Analysis Portfolio]..CovidDeaths dea
+    JOIN [Covid Analysis Portfolio]..CovidVaccinations vac
+        ON dea.location = vac.location
+        AND dea.date = vac.date
+    WHERE dea.continent IS NOT NULL
+)
+SELECT *, CAST(CurrentTotalVaccination as float)/ cast(population as float)*100 as  VaccinationPercent
+FROM PopvsVac
+Order by New_Vaccinations asc
 
-Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
-From [Covid Analysis Portfolio]..CovidDeaths dea
-Join [Covid Analysis Portfolio]..CovidVaccinations vac
-	on dea.location =vac.location
-	and dea.date = vac.date
-where dea.continent is not null
-Order by new_vaccinations desc
+--Creating Temp Table
+CREATE TABLE #VaccinatedPercent
+(
+Continent nvarchar(255),
+Location nvarchar (255),
+Date datetime,
+Population numeric,
+New_Vaccinations numeric,
+CurrentTotalVaccination numeric
+)
+INSERT INTO #VaccinatedPercent
+SELECT dea.continent, dea.location, dea.date, dea.population,  vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS CurrentTotalVaccination
+    FROM [Covid Analysis Portfolio]..CovidDeaths dea
+    JOIN [Covid Analysis Portfolio]..CovidVaccinations vac
+        ON dea.location = vac.location
+        AND dea.date = vac.date
+    WHERE dea.continent IS NOT NULL
+
+SELECT *, CAST(CurrentTotalVaccination as float)/ cast(population as float)*100 as  VaccinationPercent
+FROM #VaccinatedPercent
+Order by 2,3
